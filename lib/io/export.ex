@@ -66,9 +66,11 @@ defmodule Dbmodel.IO.Export do
     columns = table.columns
     {primary, cols} = filter_primary_key(columns)
 
+    alias_str = gen_alias(columns, project_name)
+
     output =
       module_declaration(project_name, table.name) <>
-        model_inclusion() <> schema_declaration(table.name, primary)
+        model_inclusion() <> alias_str <> schema_declaration(table.name, primary)
 
     trimmed_columns = remove_foreign_keys(cols)
 
@@ -81,14 +83,14 @@ defmodule Dbmodel.IO.Export do
     output = output <> column_output
 
     belongs_to_output =
-      Enum.filter(columns, fn column ->
+      Enum.filter(cols, fn column ->
         column.foreign_table != nil and column.foreign_table != nil
       end)
       |> Enum.reduce("", fn column, a ->
         a <> belongs_to_output(project_name, column)
       end)
 
-    output = output <> belongs_to_output <> "\n"
+    output = output <> append_output(belongs_to_output)
     output = output <> two_space(end_declaration()) <> "\n"
     output = output <> gen_required_fields(cols, @ignore_fields) <> "\n"
     output = output <> gen_optional_fields(cols, @ignore_fields) <> "\n\n"
@@ -97,10 +99,13 @@ defmodule Dbmodel.IO.Export do
     {table.name, output}
   end
 
+  defp append_output(""), do: ""
+  defp append_output(content), do: content <> "\n"
+
   defp gen_changeset(_colums) do
     output = two_space("def changeset(struct, params \\\\ %{}) do\n")
     output = output <> four_space("struct\n")
-    output = output <> four_space("|> cast(params, [@required_fields ++ @optional_fields])\n")
+    output = output <> four_space("|> cast(params, @required_fields ++ @optional_fields)\n")
     output <> two_space("end\n")
   end
 
@@ -119,8 +124,8 @@ defmodule Dbmodel.IO.Export do
   defp do_gen_required_fields(cols, title) do
     col_string =
       cols
-      |> Enum.map(fn itm -> ":#{itm.name}" end)
-      |> Enum.join(", ")
+      |> Enum.map(fn itm -> "#{itm.name}" end)
+      |> Enum.join(" ")
 
     two_space("@#{title} ~w(#{col_string})a")
   end
@@ -161,7 +166,13 @@ defmodule Dbmodel.IO.Export do
         type -> ", :#{type}"
       end
 
-    output = two_space("@primary_key {:#{primary_key}#{pri_type_str}}\n")
+    pri_type_params =
+      case pri_type do
+        "id" -> "autogenerate: true"
+        _ -> "[]"
+      end
+
+    output = two_space("@primary_key {:#{primary_key}#{pri_type_str}, #{pri_type_params}}\n")
     output <> two_space("schema \"#{table_name}\" do\n")
   end
 
@@ -205,7 +216,11 @@ defmodule Dbmodel.IO.Export do
   defp belongs_to_output(project_name, column) do
     column_name = column.name |> String.trim_trailing("_id")
     table_name = Dbmodel.Database.Table.table_name(column.foreign_table)
-    "\n" <> four_space("belongs_to(:#{column_name}, #{project_name}.#{table_name})")
+
+    "\n" <>
+      four_space(
+        "belongs_to(:#{column_name}, #{table_name}, references: :#{column.foreign_field})"
+      )
   end
 
   defp remove_foreign_keys(columns) do
@@ -217,5 +232,28 @@ defmodule Dbmodel.IO.Export do
   defp escaped_name(name) do
     name
     |> String.replace(" ", "_")
+  end
+
+  defp gen_alias([], _) do
+    ""
+  end
+
+  defp gen_alias(columns, project_name) do
+    ref_col_str =
+      columns
+      |> Enum.filter(fn itm ->
+        !itm.primary_key && !is_nil(itm.foreign_table) && itm.foreign_table != ""
+      end)
+      |> Enum.map(fn itm -> Dbmodel.Database.Table.table_name(itm.foreign_table) end)
+      |> Enum.uniq()
+      |> Enum.join(", ")
+
+    case ref_col_str do
+      "" ->
+        ""
+
+      val ->
+        two_space("alias #{project_name}.{#{val}}") <> "\n\n"
+    end
   end
 end
