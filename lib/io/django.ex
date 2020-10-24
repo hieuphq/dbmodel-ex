@@ -62,20 +62,20 @@ defmodule Dbmodel.IO.Django do
   #   "from django.db import models" <> "\n"
   # end
 
-  def module_declaration(table_name) do
+  defp module_declaration(table_name) do
     class_name = Dbmodel.Database.Table.table_name(table_name)
     "class #{class_name}(models.Model):" <> "\n"
   end
 
-  def one_tab(text) do
+  defp one_tab(text) do
     "    " <> text
   end
 
-  def two_tab(text) do
+  defp two_tab(text) do
     "    " <> "    " <> text
   end
 
-  def table_declaration(table_name) do
+  defp table_declaration(table_name) do
     output = one_tab("class Meta:" <> "\n")
     output <> two_tab("db_table = '#{table_name}'" <> "\n")
   end
@@ -164,4 +164,60 @@ defmodule Dbmodel.IO.Django do
   defp map_type(:none), do: ":error"
   defp map_type(:time), do: "models.TimeField"
   defp map_type(:boolean), do: "models.BooleanField"
+
+  def prepare_admin(table, _project_name) do
+    columns = table.columns
+
+    foreign_cols = foreign_keys(columns)
+
+    foreign_output =
+      foreign_cols
+      |> Enum.map(fn column ->
+        foreign_type_output(
+          {column.name, column.type, column.foreign_table, column.foreign_field}
+        )
+      end)
+      |> Enum.join("\n")
+
+    foreign_output =
+      if foreign_output == "", do: "", else: "# Foreign keys\n" <> foreign_output <> "\n"
+
+    output = foreign_output <> module_admin_declaration(table.name)
+
+    trimmed_columns = remove_foreign_keys(columns)
+
+    column_output = content_admin_declaration(trimmed_columns)
+
+    output =
+      output <>
+        column_output <>
+        "\n\n" <>
+        link_admin_declaration(table.name) <> "\n"
+
+    {table.name, output}
+  end
+
+  defp module_admin_declaration(table_name) do
+    class_name = Dbmodel.Database.Table.table_name(table_name)
+    "class #{class_name}Admin(admin.ModelAdmin):\n"
+  end
+
+  defp link_admin_declaration(table_name) do
+    class_name = Dbmodel.Database.Table.table_name(table_name)
+    "admin.site.register(#{class_name}, #{class_name}Admin)"
+  end
+
+  defp content_admin_declaration(columns) do
+    one_tab("list_display = (#{gen_list_display(columns)})\n") <>
+      one_tab("list_filter = []\n") <>
+      one_tab("search_fields = []\n") <>
+      one_tab("ordering = ()")
+  end
+
+  defp gen_list_display(columns) do
+    columns
+    |> Enum.filter(fn col -> !col.primary_key end)
+    |> Enum.map(fn col -> "'#{col.name}'" end)
+    |> Enum.join(",")
+  end
 end
