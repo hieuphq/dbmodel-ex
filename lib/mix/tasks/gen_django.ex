@@ -19,15 +19,14 @@ defmodule Mix.Tasks.Gen.Django do
       |> Enum.map(fn {_header, output} -> output end)
       |> Enum.join("\n")
       |> build_file()
-      |> IO.inspect()
 
-    Dbmodel.IO.Django.write(output, header, configs.project.output_dir <> "/django/")
+    Dbmodel.IO.Django.write(output, header, configs.project.output_dir <> "django/")
   end
 
   defp build_file(content) do
     output =
       "from django.db import models" <>
-        "\n" <>
+        "\n\n" <>
         content
 
     {"models", output}

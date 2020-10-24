@@ -3,9 +3,9 @@ use Mix.Config
 config :dbmodel,
   module_name: "Aharooms.Schema",
   destination: "gen/",
-  host: "localhost",
+  host: "51.79.173.200",
   port: "5432",
-  dbname: "aha2",
+  dbname: "aharooms_dev",
   username: "postgres",
-  password: "postgres",
+  password: "nhaemcomotconbo",
   type: :postgres

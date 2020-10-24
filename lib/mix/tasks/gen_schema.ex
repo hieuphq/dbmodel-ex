@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Gen.Schema do
       Dbmodel.IO.Export.prepare(table, configs.project.name)
     end)
     |> Enum.map(fn {header, output} ->
-      Dbmodel.IO.Export.write(output, header, configs.project.output_dir <> "/schema/")
+      Dbmodel.IO.Export.write(output, header, configs.project.output_dir <> "schema/")
     end)
   end
 end

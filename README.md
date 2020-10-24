@@ -25,7 +25,7 @@ Append the below config into `config/`. It can placed `config.exs` or `develop.e
 ```elixir
 config :dbmodel,
   module_name: "Aharooms.Api.Schema",
-  destination: "gen/schema/",
+  destination: "gen/",
   host: "localhost",
   port: "5432",
   dbname: "aharooms_dev",
@@ -49,5 +49,10 @@ config :dbmodel,
 
 ## Generate schema
 ```elixir
-mix dbmodel.gen.schema
+mix gen.schema
+```
+
+## Generate django
+```elixir
+mix gen.django
 ```
