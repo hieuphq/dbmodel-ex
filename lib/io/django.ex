@@ -6,9 +6,6 @@ defmodule Dbmodel.IO.Django do
   @created_time_fields ["created_at", "inserted_at"]
   @updated_time_fields ["updated_at"]
 
-  @doc """
-    Write the given schema to file.
-  """
   @spec write(String.t(), String.t(), String.t()) :: Any
   def write(schema, name, path \\ "") do
     case File.open("#{path}#{name}.py", [:write]) do
@@ -26,7 +23,21 @@ defmodule Dbmodel.IO.Django do
   def prepare(table, _project_name) do
     columns = table.columns
 
-    output = module_declaration(table.name)
+    foreign_cols = foreign_keys(columns)
+
+    foreign_output =
+      foreign_cols
+      |> Enum.map(fn column ->
+        foreign_type_output(
+          {column.name, column.type, column.foreign_table, column.foreign_field}
+        )
+      end)
+      |> Enum.join("\n")
+
+    foreign_output =
+      if foreign_output == "", do: "", else: "# Foreign keys\n" <> foreign_output <> "\n"
+
+    output = foreign_output <> module_declaration(table.name)
 
     trimmed_columns = remove_foreign_keys(columns)
 
@@ -76,13 +87,19 @@ defmodule Dbmodel.IO.Django do
   #   {primary, col}
   # end
 
+  defp foreign_keys(columns) do
+    Enum.filter(columns, fn column ->
+      !((column.foreign_table == nil and column.foreign_field == nil) or column.primary_key)
+    end)
+  end
+
   defp remove_foreign_keys(columns) do
     Enum.filter(columns, fn column ->
       (column.foreign_table == nil and column.foreign_field == nil) or column.primary_key
     end)
   end
 
-  @title_field ["title", "name"]
+  @title_field ["title", "name", "code", "ref_code"]
 
   defp title_declaration(columns) do
     title_cols = Enum.filter(columns, fn itm -> Enum.member?(@title_field, itm.name) end)
@@ -101,6 +118,12 @@ defmodule Dbmodel.IO.Django do
   defp escaped_name(name) do
     name
     |> String.replace(" ", "_")
+  end
+
+  defp foreign_type_output({name, type, table, field}) do
+    escaped_name = escaped_name(name)
+
+    "# " <> "#{escaped_name}: #{table}.#{field}(#{type})"
   end
 
   def type_output({name, type, is_primary_key?}) do
