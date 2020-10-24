@@ -2,10 +2,10 @@ use Mix.Config
 
 config :dbmodel,
   module_name: "Aharooms.Schema",
-  destination: "gen/schema/",
+  destination: "gen/",
   host: "localhost",
   port: "5432",
-  dbname: "aharooms_dev",
+  dbname: "aha2",
   username: "postgres",
   password: "postgres",
   type: :postgres

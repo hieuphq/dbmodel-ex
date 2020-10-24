@@ -14,9 +14,11 @@ defmodule Mix.Tasks.Gen.Schema do
     |> Enum.map(fn {header, columns} ->
       %Dbmodel.Database.Table{name: header.name, columns: columns}
     end)
-    |> Enum.map(fn table -> Dbmodel.IO.Export.prepare(table, configs.project.name) end)
+    |> Enum.map(fn table ->
+      Dbmodel.IO.Export.prepare(table, configs.project.name)
+    end)
     |> Enum.map(fn {header, output} ->
-      Dbmodel.IO.Export.write(output, header, configs.project.output_dir)
+      Dbmodel.IO.Export.write(output, header, configs.project.output_dir <> "/schema/")
     end)
   end
 end

@@ -213,7 +213,7 @@ defmodule Dbmodel.IO.Export do
   end
 
   @spec prepare(String.t(), Dbmodel.Database.Column) :: String.t()
-  defp belongs_to_output(project_name, column) do
+  defp belongs_to_output(_project_name, column) do
     column_name = column.name |> String.trim_trailing("_id")
     table_name = Dbmodel.Database.Table.table_name(column.foreign_table)
 
