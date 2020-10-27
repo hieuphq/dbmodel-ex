@@ -227,6 +227,7 @@ defmodule Dbmodel.IO.Django do
 
     field_content =
       fields
+      |> Enum.uniq()
       |> Enum.filter(fn itm -> itm != "" end)
       |> Enum.join(", ")
 
