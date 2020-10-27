@@ -5,6 +5,7 @@ defmodule Dbmodel.IO.Django do
   # @ignore_fields ["created_at", "updated_at", "deleted_at", "inserted_at"]
   @created_time_fields ["created_at", "inserted_at"]
   @updated_time_fields ["updated_at"]
+  @deleted_time_fields ["deleted_at"]
 
   @spec write(String.t(), String.t(), String.t()) :: Any
   def write(schema, name, path \\ "") do
@@ -76,8 +77,10 @@ defmodule Dbmodel.IO.Django do
   end
 
   defp table_declaration(table_name) do
+    class_name = Dbmodel.Database.Table.table_name(table_name)
     output = one_tab("class Meta:" <> "\n")
-    output <> two_tab("db_table = '#{table_name}'" <> "\n")
+    output = output <> two_tab("db_table = '#{table_name}'" <> "\n")
+    output <> two_tab("verbose_name_plural = '#{class_name}'" <> "\n")
   end
 
   # defp filter_primary_key(columns) do
@@ -133,8 +136,12 @@ defmodule Dbmodel.IO.Django do
     |> one_tab()
   end
 
+  defp gen_primary_type("models.IntegerField"), do: "models.AutoField"
+  defp gen_primary_type(mapped_type), do: mapped_type
+
   defp type_output_with_source(escaped_name, escaped_name, mapped_type, true),
-    do: "#{escaped_name} = #{mapped_type}(primary_key = True, editable = False)\n"
+    do:
+      "#{escaped_name} = #{gen_primary_type(mapped_type)}(primary_key = True, editable = False)\n"
 
   defp type_output_with_source(escaped_name, escaped_name, mapped_type, false),
     do: "#{escaped_name} = #{gen_mapped_type(escaped_name, mapped_type)}\n"
@@ -147,11 +154,15 @@ defmodule Dbmodel.IO.Django do
       Enum.member?(@updated_time_fields, field) ->
         "#{type}(auto_now=True)"
 
+      Enum.member?(@deleted_time_fields, field) ->
+        "#{type}(null=True, blank=True)"
+
       true ->
         "#{type}()"
     end
   end
 
+  defp gen_mapped_type(_field, "models.CharField"), do: "models.CharField(max_length=255)"
   defp gen_mapped_type(_field, type), do: "#{type}()"
 
   defp map_type(:integer), do: "models.IntegerField"
