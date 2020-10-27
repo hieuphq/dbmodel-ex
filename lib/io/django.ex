@@ -29,16 +29,15 @@ defmodule Dbmodel.IO.Django do
     foreign_output =
       foreign_cols
       |> Enum.map(fn column ->
-        foreign_type_output(
-          {column.name, column.type, column.foreign_table, column.foreign_field}
-        )
+        {column.name, column.type, column.foreign_table, column.foreign_field}
+        |> foreign_type_output()
+        |> one_tab()
       end)
       |> Enum.join("\n")
 
-    foreign_output =
-      if foreign_output == "", do: "", else: "# Foreign keys\n" <> foreign_output <> "\n"
+    foreign_output = if foreign_output == "", do: "", else: foreign_output <> "\n"
 
-    output = foreign_output <> module_declaration(table.name)
+    output = module_declaration(table.name)
 
     trimmed_columns = remove_foreign_keys(columns)
 
@@ -51,6 +50,8 @@ defmodule Dbmodel.IO.Django do
     output =
       output <>
         column_output <>
+        "\n" <>
+        foreign_output <>
         "\n" <>
         table_declaration(table.name) <>
         "\n" <>
@@ -123,10 +124,12 @@ defmodule Dbmodel.IO.Django do
     |> String.replace(" ", "_")
   end
 
-  defp foreign_type_output({name, type, table, field}) do
+  defp foreign_type_output({name, _type, table, _field}) do
     escaped_name = escaped_name(name)
+    column_name = escaped_name |> String.trim_trailing("_id")
+    table = Dbmodel.Database.Table.table_name(table)
 
-    "# " <> "#{escaped_name}: #{table}.#{field}(#{type})"
+    "#{column_name} = models.ForeignKey(#{table}, on_delete = models.CASCADE)"
   end
 
   def type_output({name, type, is_primary_key?}) do
@@ -184,23 +187,21 @@ defmodule Dbmodel.IO.Django do
 
     foreign_cols = foreign_keys(columns)
 
-    foreign_output =
+    foreign_fields =
       foreign_cols
       |> Enum.map(fn column ->
-        foreign_type_output(
-          {column.name, column.type, column.foreign_table, column.foreign_field}
-        )
+        col_name =
+          column.name
+          |> String.trim_trailing("_id")
+
+        "'#{col_name}'"
       end)
-      |> Enum.join("\n")
 
-    foreign_output =
-      if foreign_output == "", do: "", else: "# Foreign keys\n" <> foreign_output <> "\n"
-
-    output = foreign_output <> module_admin_declaration(table.name)
+    output = module_admin_declaration(table.name)
 
     trimmed_columns = remove_foreign_keys(columns)
 
-    column_output = content_admin_declaration(trimmed_columns)
+    column_output = content_admin_declaration(trimmed_columns, foreign_fields)
 
     output =
       output <>
@@ -221,8 +222,15 @@ defmodule Dbmodel.IO.Django do
     "admin.site.register(#{class_name}, #{class_name}Admin)"
   end
 
-  defp content_admin_declaration(columns) do
-    one_tab("list_display = (#{gen_list_display(columns)})\n") <>
+  defp content_admin_declaration(columns, foreign_fields) do
+    fields = gen_list_display(columns) ++ foreign_fields
+
+    field_content =
+      fields
+      |> Enum.filter(fn itm -> itm != "" end)
+      |> Enum.join(", ")
+
+    one_tab("list_display = (#{field_content})\n") <>
       one_tab("list_filter = []\n") <>
       one_tab("search_fields = []\n") <>
       one_tab("ordering = ()")
@@ -232,6 +240,5 @@ defmodule Dbmodel.IO.Django do
     columns
     |> Enum.filter(fn col -> !col.primary_key end)
     |> Enum.map(fn col -> "'#{col.name}'" end)
-    |> Enum.join(",")
   end
 end
