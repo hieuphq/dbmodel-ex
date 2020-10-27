@@ -163,6 +163,9 @@ defmodule Dbmodel.IO.Django do
   end
 
   defp gen_mapped_type(_field, "models.CharField"), do: "models.CharField(max_length=255)"
+  defp gen_mapped_type(_field, "models.DecimalField"), do: "models.DecimalField(default=0)"
+  defp gen_mapped_type(_field, "models.IntegerField"), do: "models.CharField(default=0)"
+  defp gen_mapped_type(_field, "models.BooleanField"), do: "models.BooleanField(default=False)"
   defp gen_mapped_type(_field, type), do: "#{type}()"
 
   defp map_type(:integer), do: "models.IntegerField"
